@@ -80,10 +80,10 @@ int read_index(char *fname, int index) {
     //uint8_t *encoded, int len_encoded, int index, int element_size, void *value
     
 
-    int success = decode(buffer, decoded, strip_byte_count);
-    value = *((float *)decoded);
+    //int success = decode(buffer, decoded, strip_byte_count);
+    //value = *((float *)decoded);
 
-    //int success = get_index(buffer, strip_byte_count, 0, sizeof(float), &value);
+    int success = get_index(buffer, strip_byte_count, 0, sizeof(float), &value);
 
     cout << "after decode" << endl;
     if(success == 0) {

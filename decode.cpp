@@ -182,6 +182,7 @@ int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, vo
     bitcount += bitvals->bitw;
     uint32_t oldcode = 0;
 
+//in other method just read a few bytes and follow the values to make sure match
     while(code != 257 && bitcount < bitcount_max && index_bytes_decoded < element_size) {
         int num_bytes_decoded;
         uint8_t *decoded_bytes;
