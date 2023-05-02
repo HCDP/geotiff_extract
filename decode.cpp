@@ -12,13 +12,24 @@ struct Bitvals {
     long mask;
 };
 
+struct Bitvals s255 = {9, 23, 4286578688L};
+struct Bitvals s511 = {10, 22, 4290772992L};
+struct Bitvals s1023 = {11, 21, 4292870144L};
+struct Bitvals s2047 = {12, 20, 4293918720L};
+
+map<int, struct Bitvals *> switchbits = {
+    { 255, &s255 },
+    { 511, &s511 },
+    { 1023, &s1023},
+    { 2047, &s2047 }
+};
+
 uint32_t next_code(int bitcount, uint8_t *encoded, int len_encoded, struct Bitvals *bitvals) {
     int start = bitcount / 8;
     uint32_t code = 0;
     int bytes_to_read = 4;
     int bytes_remaining = len_encoded - start;
     if(bytes_remaining < bytes_to_read) {
-        cout << "!!" << endl;
         bytes_to_read = bytes_remaining;
     }
     for(int i = 0; i < bytes_to_read; i++) {
@@ -33,33 +44,19 @@ uint32_t next_code(int bitcount, uint8_t *encoded, int len_encoded, struct Bitva
 
 int decode(uint8_t *encoded, uint8_t *decoded, int len_encoded) {
     int bitcount_max = len_encoded * 8;
-    //start table with 258 code vectors (0-255 + padding for clear and exit codes)
+    //start table with 258 code vectors (0-255 + padding for clear and exit codes), note index 256/257 value does not matter
     vector<vector<uint8_t>> table(258);
     int i;
     for(i = 0; i < 258; i++) {
         table[i].push_back((uint8_t)i);
     }
 
-    struct Bitvals s255 = {9, 23, 4286578688L};
-    struct Bitvals s511 = {10, 22, 4290772992L};
-    struct Bitvals s1023 = {11, 21, 4292870144L};
-    struct Bitvals s2047 = {12, 20, 4293918720L};
-    
-    map<int, struct Bitvals *> switchbits = {
-        { 255, &s255 },
-        { 511, &s511 },
-        { 1023, &s1023},
-        { 2047, &s2047 }
-    };
     struct Bitvals *bitvals = switchbits[255];
 
     int bitcount = 0;
 
-    if(len_encoded < 4) {
-        return 1;
-    }
-    if(next_code(bitcount, encoded, len_encoded, bitvals) != 256) {
-        cout << "!!" << endl;
+    //encoded must have a minimum length of 4 bytes and start with clear code (256)
+    if(len_encoded < 4 || next_code(bitcount, encoded, len_encoded, bitvals) != 256) {
         return 1;
     }
 
@@ -71,6 +68,9 @@ int decode(uint8_t *encoded, uint8_t *decoded, int len_encoded) {
     while(code != 257 && bitcount < bitcount_max && bytes_written < 4) {
         //clear
         if(code == 256) {
+            cout << "a" << endl;
+
+
             table.resize(258);
 
             bitvals = switchbits[255];
@@ -79,56 +79,30 @@ int decode(uint8_t *encoded, uint8_t *decoded, int len_encoded) {
             if(code == 257) {
                 break;
             }
-            cout << "code: " << code << endl;
+
+
+            cout << hex;
+            cout << (int)*((uint8_t *)&code) << endl;
+            cout << dec;
+
+
             //right one byte code
             memcpy(decoded + bytes_written, &code, 1);
             bytes_written += 1;
-
-            cout << "a: " << 1 << endl;
-            cout << hex;
-            for(int i = 0; i < 1; i++) {
-                cout << (int)*((uint8_t *)&code + i) << endl;
-            }
-            cout << dec;
         }
         else if(code < table.size()) {
-            vector<uint8_t> *decode = &table[code];
-            cout << "b?: " << decode->size() << endl;
             vector<uint8_t> new_sequence = table[oldcode];
-            cout << "b?: " << decode->size() << endl;
-            cout << "b!: " << (int)(*decode)[0] << endl;
-            new_sequence.push_back((*decode)[0]);
-            cout << "b?: " << decode->size() << endl;
-            memcpy(decoded + bytes_written, decode->data(), decode->size());
-            cout << "b?: " << decode->size() << endl;
-            bytes_written += decode->size();
-            cout << "b?: " << decode->size() << endl;
+            new_sequence.push_back(table[code][0]);
+            memcpy(decoded + bytes_written, table[code].data(), table[code].size());
+            bytes_written += table[code].size();
             table.push_back(new_sequence);
-            cout << "b?: " << decode->size() << endl;
-
-            cout << "b: " << decode->size() << endl;
-            cout << code << endl;
-            cout << table[code].size() << endl;
-            cout << hex;
-            for(int i = 0; i < decode->size(); i++) {
-                cout << (int)*((uint8_t *)decode->data() + i) << endl;
-            }
-            cout << dec;
         }
         else {
             vector<uint8_t> new_sequence = table[oldcode];
             new_sequence.push_back(new_sequence[0]);
-
             memcpy(decoded + bytes_written, new_sequence.data(), new_sequence.size());
             bytes_written += new_sequence.size();
             table.push_back(new_sequence);
-
-            cout << "c: " << new_sequence.size() << endl;
-            cout << hex;
-            for(int i = 0; i < new_sequence.size(); i++) {
-                cout << (int)*((uint8_t *)new_sequence.data() + i) << endl;
-            }
-            cout << dec;
         }
         oldcode = code;
         if(switchbits.find(table.size()) != switchbits.end()) {
@@ -154,27 +128,12 @@ int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, vo
         table[i].push_back((uint8_t)i);
     }
 
-    struct Bitvals s255 = {9, 23, 4286578688L};
-    struct Bitvals s511 = {10, 22, 4290772992L};
-    struct Bitvals s1023 = {11, 21, 4292870144L};
-    struct Bitvals s2047 = {12, 20, 4293918720L};
-    
-    map<int, struct Bitvals *> switchbits = {
-        { 255, &s255 },
-        { 511, &s511 },
-        { 1023, &s1023},
-        { 2047, &s2047 }
-    };
     struct Bitvals *bitvals = switchbits[255];
 
     int bitcount = 0;
 
-    //encoded must have a minimum length of 4 bytes
-    if(len_encoded < 4) {
-        return 1;
-    }
-    if(next_code(bitcount, encoded, len_encoded, bitvals) != 256) {
-        cout << "!!" << endl;
+    //encoded must have a minimum length of 4 bytes and start with clear code (256)
+    if(len_encoded < 4 || next_code(bitcount, encoded, len_encoded, bitvals) != 256) {
         return 1;
     }
 
@@ -201,12 +160,13 @@ int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, vo
             decoded_bytes = (uint8_t *)&code;
         }
         else if(code < table.size()) {
-            vector<uint8_t> *decode = &table[code];
+            //CAN'T STORE POINTER TO VECTOR ELEMENT, APPARENTLY CAN CHANGE
+            //just access directly rather than through decode variable (or can create a top level decode variable, seems unnecessary)
             vector<uint8_t> new_sequence = table[oldcode];
-            new_sequence.push_back((*decode)[0]);
+            new_sequence.push_back(table[code][0]);
             table.push_back(new_sequence);
-            num_bytes_decoded = decode->size();
-            decoded_bytes = decode->data();
+            num_bytes_decoded = table[code].size();
+            decoded_bytes = table[code].data();
         }
         else {
             vector<uint8_t> new_sequence = table[oldcode];
@@ -219,11 +179,6 @@ int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, vo
         //check if should write, all of the methods write
         //if decoded past the start of the desired item index then read into the output value
         if(num_bytes_decoded > bytes_to_index) {
-            cout << hex;
-            for(int i = 0; i < num_bytes_decoded; i++) {
-                cout << (int)*((uint8_t *)decoded_bytes + i) << endl;
-            }
-            cout << dec;
             //move pointer to first byte in index
             decoded_bytes += bytes_to_index;
             //subtract shift from number of bytes
@@ -237,7 +192,6 @@ int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, vo
             if(index_bytes_decoded + bytes_to_write > element_size) {
                 bytes_to_write = element_size - index_bytes_decoded;
             }
-            cout << bytes_to_write << endl;
             //start writing after any bytes that have already been written
             uint8_t *write_start = (uint8_t *)value + index_bytes_decoded;
             //copy the computed number of bytes to the output pointer

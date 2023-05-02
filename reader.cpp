@@ -3,7 +3,8 @@
 #include "decode.cpp"
 
 void get_row_col(int, int, struct row_col *);
-int read_index(char *, int);
+int read_value(char *, struct row_col *, float &);
+int read_value(char *, int, float &);
 
 struct row_col {
     int row;
@@ -15,20 +16,22 @@ void get_row_col(int index, int width, struct row_col *pos) {
     pos->col = index % width;
 }
 
-int read_index(char *fname, int index) {
+int read_value(char *fname, struct row_col *pos, float &value) {
     FILE *f;
     f = fopen(fname, "rb");
     uint8_t *buffer = (uint8_t *)malloc(12);
     fread(buffer, 10, 1, f);
-    printf("%.2s\n", buffer);
+    //only supports little endian (shouldn't need big endian implementation for our purposes)
+    //implementation also assumes host system is little endian
+    if(buffer[0] != 'I') {
+        return 12;
+    }
     uint16_t magic = *(uint16_t *)(buffer + 2);
     //validate file
     if(magic != 42) {
         return 1;
     }
-    struct row_col pos;
-    //hardcode width for efficiency, tag 256 if need to get from header
-    get_row_col(index, 2288, &pos);
+    
     uint32_t ifd_offset = *(uint32_t *)(buffer + 4);
     fseek(f, ifd_offset, SEEK_SET);
     fread(buffer, 2, 1, f);
@@ -38,8 +41,9 @@ int read_index(char *fname, int index) {
     //note if value is less than or equal to 4 bytes this will be the value itself
     uint32_t strip_offset_offset;
     uint32_t strip_byte_count_offset;
+    
     //assumes 4 byte vals (both tags should be)
-    int index_offset = 4 * pos.row;
+    int index_offset = 4 * pos->row;
     int tags = 2;
     for(int i = 0; i < num_entries && tags > 0; i++) {
         fread(buffer, 12, 1, f);
@@ -55,6 +59,7 @@ int read_index(char *fname, int index) {
             tags--;
         }
     }
+
     //get strip offset
     fseek(f, strip_offset_offset, SEEK_SET);
     fread(buffer, 4, 1, f);
@@ -64,60 +69,124 @@ int read_index(char *fname, int index) {
     fread(buffer, 4, 1, f);
     uint32_t strip_byte_count = *(uint32_t *)buffer;
     //get strip
-    //need a new buffer of strip size, just free old buffer and create new allocation
+    //need a new buffer of strip size, just free old buffer and create new allocation since don't need data
     free(buffer);
     buffer = (uint8_t *)malloc(strip_byte_count);
     fseek(f, strip_offset, SEEK_SET);
     fread(buffer, strip_byte_count, 1, f);
-
-    //uint32_t value;
-    int data_start = 4 * pos.col;
-    
-    // //temp read to vectors for testing, then can optimize if works
-    // vector<uint8_t> encoded(buffer, buffer + strip_byte_count);
-    uint8_t *decoded = (uint8_t *)malloc(10000);
-    float value = 0;
-    //uint8_t *encoded, int len_encoded, int index, int element_size, void *value
-    
-
-    //int success = decode(buffer, decoded, strip_byte_count);
-    //value = *((float *)decoded);
-
-    int success = get_index(buffer, strip_byte_count, 0, sizeof(float), &value);
-
-    cout << "after decode" << endl;
-    if(success == 0) {
-        cout << hex;
-        for(int i = 0; i < sizeof(float); i++) {
-            cout << (int)*((uint8_t *)&value + i) << endl;
-        }
-        cout << dec;
-        cout << "success" << endl;
-        //test element 0 for now, note need to change to col
-        //vector values stored like array, can just get pos
-        //4 byte value pointer, deref to float value
-        //float value = *(float *)(decoded + 800);
-        cout << value << endl;
-        // if(decode(buffer, &value, data_start, strip_byte_count)) {
-        //     printf("success!?!\n");
-        // }
-        
-    }
-    else {
-        cout << "failure" << endl;
-    }
-    cout << "before free decode" << endl;
-    free(decoded);
-    cout << "after free decode" << endl;
-
-
-    free(buffer);
+    //done with file, close
     fclose(f);
-    return 0;
+    int success = get_index(buffer, strip_byte_count, pos->col, sizeof(float), &value);
+    free(buffer);
+    return success;
+}
+
+
+
+
+
+
+int read_value(char *fname, int index, float &value) {
+    cout << index << endl;
+    FILE *f;
+    f = fopen(fname, "rb");
+    uint8_t *buffer = (uint8_t *)malloc(12);
+    fread(buffer, 10, 1, f);
+    //only supports little endian (shouldn't need big endian implementation for our purposes)
+    //implementation also assumes host system is little endian
+    if(buffer[0] != 'I') {
+        return 12;
+    }
+    uint16_t magic = *(uint16_t *)(buffer + 2);
+    //validate file
+    if(magic != 42) {
+        return 1;
+    }
+    struct row_col pos;
+    
+    uint32_t ifd_offset = *(uint32_t *)(buffer + 4);
+    fseek(f, ifd_offset, SEEK_SET);
+    fread(buffer, 2, 1, f);
+    uint16_t num_entries = *(uint16_t *)buffer;
+    int16_t field_tag;
+    //garenteed to be offset for needed values for handled tiffs
+    //note if value is less than or equal to 4 bytes this will be the value itself
+    uint32_t strip_offset_offset;
+    uint32_t strip_byte_count_offset;
+    
+    int tags = 3;
+    for(int i = 0; i < num_entries && tags > 0; i++) {
+        fread(buffer, 12, 1, f);
+        field_tag = *(uint16_t *)buffer;
+        //map width
+        if(field_tag == 256) {
+            get_row_col(index, *(uint16_t *)(buffer + 8), &pos);     
+            tags--;
+        }
+        //strip offsets
+        else if(field_tag == 273) {
+            strip_offset_offset = *(uint32_t *)(buffer + 8);
+            tags--;
+        }
+        //strip byte counts
+        else if(field_tag == 279) {
+            strip_byte_count_offset = *(uint32_t *)(buffer + 8);
+            tags--;
+        }
+    }
+    //assumes 4 byte vals (both tags should be)
+    int index_offset = 4 * pos.row;
+    strip_byte_count_offset += index_offset;
+    strip_offset_offset+= index_offset;
+
+    //get strip offset
+    fseek(f, strip_offset_offset, SEEK_SET);
+    fread(buffer, 4, 1, f);
+    uint32_t strip_offset = *(uint32_t *)buffer;
+    //get strip size
+    fseek(f, strip_byte_count_offset, SEEK_SET);
+    fread(buffer, 4, 1, f);
+    uint32_t strip_byte_count = *(uint32_t *)buffer;
+    //get strip
+    //need a new buffer of strip size, just free old buffer and create new allocation since don't need data
+    free(buffer);
+    buffer = (uint8_t *)malloc(strip_byte_count);
+    fseek(f, strip_offset, SEEK_SET);
+    fread(buffer, strip_byte_count, 1, f);
+    //done with file, close
+    fclose(f);
+    int success = get_index(buffer, strip_byte_count, pos.col, sizeof(float), &value);
+    free(buffer);
+    return success;
 }
 
 int main(int argc, char **argv) {
-    char *fname = (char *)"rainfall_new_month_statewide_data_map_2022_01.tif";
-    int index = 0;
-    return read_index(fname, index);
+    cout << argc << endl;
+    if(argc < 3) {
+        cout << "Usage: tiffextract tifffile { index | row col }" << endl;
+        return 3;
+    }
+
+    int success;
+    float value;
+    if(argc == 3) {
+        cout << argc << endl;
+        success = read_value(argv[1], atoi(argv[2]), value);
+    }
+    else {
+        struct row_col pos = {atoi(argv[2]), atoi(argv[3])};
+        success = read_value(argv[1], &pos, value);
+    }
+    //  cout << hex;
+    //     for(int i = 0; i < sizeof(float); i++) {
+    //         cout << (int)*((uint8_t *)&value + i) << endl;
+    //     }
+    //     cout << dec;
+    //     cout << value << endl;
+    //     cout << "success" << endl; 
+    cout << value;
+    return success;
+//     char *fname = (char *)"rainfall_new_month_statewide_data_map_2022_01.tif";
+//     int index = 34503;
+//     return read_value(fname, index);
 }
