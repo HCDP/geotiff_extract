@@ -81,11 +81,6 @@ int read_value(char *fname, struct row_col *pos, float &value) {
     return success;
 }
 
-
-
-
-
-
 int read_value(char *fname, int index, float &value) {
     cout << index << endl;
     FILE *f;
@@ -161,7 +156,6 @@ int read_value(char *fname, int index, float &value) {
 }
 
 int main(int argc, char **argv) {
-    cout << argc << endl;
     if(argc < 3) {
         cout << "Usage: tiffextract tifffile { index | row col }" << endl;
         return 3;
@@ -170,23 +164,12 @@ int main(int argc, char **argv) {
     int success;
     float value;
     if(argc == 3) {
-        cout << argc << endl;
         success = read_value(argv[1], atoi(argv[2]), value);
     }
     else {
         struct row_col pos = {atoi(argv[2]), atoi(argv[3])};
         success = read_value(argv[1], &pos, value);
     }
-    //  cout << hex;
-    //     for(int i = 0; i < sizeof(float); i++) {
-    //         cout << (int)*((uint8_t *)&value + i) << endl;
-    //     }
-    //     cout << dec;
-    //     cout << value << endl;
-    //     cout << "success" << endl; 
     cout << value;
     return success;
-//     char *fname = (char *)"rainfall_new_month_statewide_data_map_2022_01.tif";
-//     int index = 34503;
-//     return read_value(fname, index);
 }

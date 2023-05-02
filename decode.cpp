@@ -65,12 +65,9 @@ int decode(uint8_t *encoded, uint8_t *decoded, int len_encoded) {
     uint32_t oldcode = 0;
     int bytes_written = 0;
 
-    while(code != 257 && bitcount < bitcount_max && bytes_written < 4) {
+    while(code != 257 && bitcount < bitcount_max) {
         //clear
         if(code == 256) {
-            cout << "a" << endl;
-
-
             table.resize(258);
 
             bitvals = switchbits[255];
@@ -79,14 +76,7 @@ int decode(uint8_t *encoded, uint8_t *decoded, int len_encoded) {
             if(code == 257) {
                 break;
             }
-
-
-            cout << hex;
-            cout << (int)*((uint8_t *)&code) << endl;
-            cout << dec;
-
-
-            //right one byte code
+            //write one byte code
             memcpy(decoded + bytes_written, &code, 1);
             bytes_written += 1;
         }
@@ -115,8 +105,6 @@ int decode(uint8_t *encoded, uint8_t *decoded, int len_encoded) {
     return 0;
 }
 
-
-
 int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, void *value) {
     int bytes_to_index = index * element_size;
     int index_bytes_decoded = 0;
@@ -141,7 +129,6 @@ int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, vo
     bitcount += bitvals->bitw;
     uint32_t oldcode = 0;
 
-//in other method just read a few bytes and follow the values to make sure match
     while(code != 257 && bitcount < bitcount_max && index_bytes_decoded < element_size) {
         int num_bytes_decoded;
         uint8_t *decoded_bytes;
@@ -161,7 +148,7 @@ int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, vo
         }
         else if(code < table.size()) {
             //CAN'T STORE POINTER TO VECTOR ELEMENT, APPARENTLY CAN CHANGE
-            //just access directly rather than through decode variable (or can create a top level decode variable, seems unnecessary)
+            //just access directly rather than through decode variable
             vector<uint8_t> new_sequence = table[oldcode];
             new_sequence.push_back(table[code][0]);
             table.push_back(new_sequence);
