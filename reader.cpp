@@ -155,21 +155,21 @@ int read_value(char *fname, int index, float &value) {
     return success;
 }
 
-int main(int argc, char **argv) {
-    if(argc < 3) {
-        cout << "Usage: tiffextract tifffile { index | row col }" << endl;
-        return 3;
-    }
+// int main(int argc, char **argv) {
+//     if(argc < 3) {
+//         cout << "Usage: tiffextract tifffile { index | row col }" << endl;
+//         return 3;
+//     }
 
-    int success;
-    float value;
-    if(argc == 3) {
-        success = read_value(argv[1], atoi(argv[2]), value);
-    }
-    else {
-        struct row_col pos = {atoi(argv[2]), atoi(argv[3])};
-        success = read_value(argv[1], &pos, value);
-    }
-    cout << value;
-    return success;
-}
+//     int success;
+//     float value;
+//     if(argc == 3) {
+//         success = read_value(argv[1], atoi(argv[2]), value);
+//     }
+//     else {
+//         struct row_col pos = {atoi(argv[2]), atoi(argv[3])};
+//         success = read_value(argv[1], &pos, value);
+//     }
+//     cout << value;
+//     return success;
+// }
