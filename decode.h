@@ -10,7 +10,15 @@ using namespace std;
 namespace GeotiffExtract {
     class Decoder {
         public:
-        int decode(uint8_t *encoded, uint8_t *decoded, int len_encoded) {
+        uint8_t *encoded;
+        int len_encoded;
+        
+        Decoder(uint8_t *encoded, int len_encoded) {
+            this->encoded = encoded;
+            this->len_encoded = len_encoded;
+        }
+
+        int decode(uint8_t *decoded) {
             int bitcount_max = len_encoded * 8;
             //start table with 258 code vectors (0-255 + padding for clear and exit codes), note index 256/257 value does not matter
             vector<vector<uint8_t>> table(258);
@@ -73,7 +81,7 @@ namespace GeotiffExtract {
             return 0;
         }
 
-        int get_index(uint8_t *encoded, int len_encoded, int index, int element_size, void *value) {
+        int get_index(int index, int element_size, void *value) {
             int bytes_to_index = index * element_size;
             int index_bytes_decoded = 0;
             int bitcount_max = len_encoded * 8;
@@ -178,13 +186,13 @@ namespace GeotiffExtract {
         struct Bitvals {
             uint8_t bitw;
             uint8_t shr;
-            long mask;
+            unsigned long mask;
         };
 
-        struct Bitvals s255 = {9, 23, 4286578688L};
-        struct Bitvals s511 = {10, 22, 4290772992L};
-        struct Bitvals s1023 = {11, 21, 4292870144L};
-        struct Bitvals s2047 = {12, 20, 4293918720L};
+        struct Bitvals s255 = {9, 23, 4286578688UL};
+        struct Bitvals s511 = {10, 22, 4290772992UL};
+        struct Bitvals s1023 = {11, 21, 4292870144UL};
+        struct Bitvals s2047 = {12, 20, 4293918720UL};
 
         map<int, struct Bitvals *> switchbits = {
             { 255, &s255 },

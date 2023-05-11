@@ -3,18 +3,19 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include "reader.cpp"
+#include "reader.h"
 
 //g++ driver.cpp -fopenmp
 
 using namespace std;
+using namespace GeotiffExtract;
+
+struct result_data {
+    int code;
+    float value;
+};
 
 int main(int argc, char **argv) {
-    if(argc < 3) {
-        cout << "Usage: tiffextract tifffile { index | row col }" << endl;
-        return 3;
-    }
-
     struct row_col pos = {-1, -1};
     int index = -1;
     char *infile = nullptr;
@@ -39,7 +40,13 @@ int main(int argc, char **argv) {
         }
     }
     if((pos.col < 0 || pos.row < 0) && index < 0) {
-        //error, print usage
+        cout << "Arguments must include either an index (-i index) or a row and column (-r row -c col)" << endl;
+        cout << "Usage: geotiffextract [-f input_file] [-i index] [-r row] [-c col] tiff1 tiff2 ..." << endl;
+        return 1;
+    }
+    else if(files.size() == 0 && infile == nullptr) {
+        cout << "No input files provided. Please provide an input file containing a list of tiff files (-f input_file) or a set of tiff files" << endl;
+        cout << "Usage: geotiffextract [-f input_file] [-i index] [-r row] [-c col] tiff1 tiff2 ..." << endl;
     }
 
     fstream f;
@@ -49,42 +56,54 @@ int main(int argc, char **argv) {
         files.push_back(fname);
     }
     f.close();
-    float *values = (float *)malloc(sizeof(float) * files.size());
-    int *codes = (int *)malloc(sizeof(int) * files.size());
+    struct result_data *results = (struct result_data *)malloc(sizeof(result_data) * files.size());
 
     if(index < 0) {
         #pragma omp parallel for
         for(i = 0; i < files.size(); i++) {
-            int code = read_value(const_cast<char *>(files[i].c_str()), &pos, values[i]);
-            codes[i] = code;
-            if(code != 0) {
-                values[i] = 0;
+            results[i].code = -1;
+            try {
+                Reader reader(const_cast<char *>(files[i].c_str()));
+                results[i].code = reader.read_value(&pos, results[i].value);
+            }
+            catch(const exception &e) {
+                #pragma omp critical
+                cerr << "Error in reader for file: " << files[i] << ": " << e.what() << endl;
+            }
+            if(results[i].code != 0) {
+                results[i].value = 0;
             }
         }
     }
     else {
         #pragma omp parallel for
         for(i = 0; i < files.size(); i++) {
-            int code = read_value(const_cast<char *>(files[i].c_str()), index, values[i]);
-            codes[i] = code;
-            if(code != 0) {
-                values[i] = 0;
+            results[i].code = -1;
+            try {
+                Reader reader(const_cast<char *>(files[i].c_str()));
+                results[i].code = reader.read_value(index, results[i].value);
+            }
+            catch(const exception &e) {
+                #pragma omp critical
+                cerr << "Error in reader for file: " << files[i] << ": " << e.what() << endl;
+            }      
+            if(results[i].code != 0) {
+                results[i].value = 0;
             }
         }
     }
 
     for(i = 0; i < files.size(); i++) {
-        if(codes[i] != 0) {
+        if(results[i].code != 0) {
             cout << "_ ";
         }
         else {
-            cout << values[i] << " ";
+            cout << results[i].value << " ";
         }
         
     }
 
-    free(values);
-    free(codes);
+    std::free(results);
 
     return 0;
 }
