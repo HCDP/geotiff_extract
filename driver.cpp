@@ -64,7 +64,8 @@ int main(int argc, char **argv) {
             results[i].code = -1;
             try {
                 Reader reader(const_cast<char *>(files[i].c_str()));
-                results[i].code = reader.read_value(&pos, results[i].value);
+                cout << reader.width() << endl;
+                results[i].code = reader.read(&pos, 4, &results[i].value, READ_VALUE);
             }
             catch(const exception &e) {
                 #pragma omp critical
@@ -81,7 +82,7 @@ int main(int argc, char **argv) {
             results[i].code = -1;
             try {
                 Reader reader(const_cast<char *>(files[i].c_str()));
-                results[i].code = reader.read_value(index, results[i].value);
+                results[i].code = reader.read(index, 4, &results[i].value, READ_VALUE);
             }
             catch(const exception &e) {
                 #pragma omp critical
