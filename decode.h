@@ -22,6 +22,8 @@ namespace GeotiffExtract {
             int bitcount_max = len_encoded * 8;
             //start table with 258 code vectors (0-255 + padding for clear and exit codes), note index 256/257 value does not matter
             vector<vector<uint8_t>> table(258);
+            //reserve max table size so vector won't have to be resized when adding codes
+            table.reserve(4096);
             int i;
             for(i = 0; i < 258; i++) {
                 table[i].push_back((uint8_t)i);
@@ -111,7 +113,7 @@ namespace GeotiffExtract {
 
             struct Bitvals *bitvals = switchbits[255];
 
-            uint32_t code = next_code(0, encoded, len_encoded, bitvals);
+            uint16_t code = next_code(0, encoded, len_encoded, bitvals);
             //encoded must have a minimum length of 4 bytes and start with clear code (256)
             if(code != 256) {
                 return 1;
@@ -119,14 +121,11 @@ namespace GeotiffExtract {
             
             int bitcount = (int)bitvals->bitw;
 
-            uint32_t oldcode = 0;
+            uint16_t oldcode = 0;
 
             int num_bytes_decoded;
             uint8_t *decoded_bytes;
             while(code != 257 && bitcount < bitcount_max && index_bytes_decoded < element_size) {
-                code = next_code(bitcount, encoded, len_encoded, bitvals);
-                bitcount += bitvals->bitw;
-                
                 //clear
                 if(code == 256) {
                     table.resize(258);
@@ -196,14 +195,11 @@ namespace GeotiffExtract {
                 if(switchbits.find(table.size()) != switchbits.end()) {
                     bitvals = switchbits[table.size()];
                 }
-                
+                code = next_code(bitcount, encoded, len_encoded, bitvals);
+                bitcount += bitvals->bitw;
             }
             
             if(index_bytes_decoded < element_size) {
-                cout << bytes_total << endl;
-                cout << code << endl;
-                cout << bytes_to_index << endl;
-                cout << "overran end, bytes decoded: " << index_bytes_decoded << " " << bitcount << " " << bitcount_max << endl;
                 return 2;
             }
             return 0;
@@ -220,6 +216,7 @@ namespace GeotiffExtract {
             uint32_t mask;
         };
 
+        //tiff encoding max length of 12 bits
         struct Bitvals s255 = {9, 23, 4286578688};
         struct Bitvals s511 = {10, 22, 4290772992};
         struct Bitvals s1023 = {11, 21, 4292870144};
@@ -235,12 +232,14 @@ namespace GeotiffExtract {
         uint16_t next_code(int bitcount, uint8_t *encoded, int len_encoded, struct Bitvals *bitvals) {
             int start = bitcount / 8;
             uint32_t code = 0;
-            //4 byte code but only need to read 3 bytes (shift is a max of 7 with < 2 byte max, fourth byte unused)
+            //4 byte code but only need to read 3 bytes (shift is a max of 7 bits with 12 bit max code length, fourth byte unused)
             int bytes_to_read = 3;
             int bytes_remaining = len_encoded - start;
+            //make sure not reading past the end of encoded sequence
             if(bytes_remaining < bytes_to_read) {
                 bytes_to_read = bytes_remaining;
             }
+            //read bytes in order (memcpy or pointer cast will reverse assuming machine byte order is little endian)
             for(int i = 0; i < bytes_to_read; i++) {
                 int shift = 8 * (3 - i);
                 code |= encoded[start + i] << shift;
@@ -248,8 +247,7 @@ namespace GeotiffExtract {
             code <<= bitcount % 8;
             code &= bitvals->mask;
             code >>= bitvals->shr;
-            cout << code << endl;
-            //code will always fit in 2 bytes
+            //code will always fit in 2 bytes (12 bit max)
             return (uint16_t)code;
         }
     };

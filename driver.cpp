@@ -64,7 +64,6 @@ int main(int argc, char **argv) {
             results[i].code = -1;
             try {
                 Reader reader(const_cast<char *>(files[i].c_str()));
-                cout << reader.width() << endl;
                 results[i].code = reader.read(&pos, 4, &results[i].value, READ_VALUE);
             }
             catch(const exception &e) {
@@ -104,7 +103,7 @@ int main(int argc, char **argv) {
         
     }
 
-    std::free(results);
+    free(results);
 
     return 0;
 }
