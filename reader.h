@@ -1,8 +1,11 @@
+#ifndef _TIFFEXTRACT_READER_H
+#define _TIFFEXTRACT_READER_H
+
 #include <iostream>
 #include <stdio.h>
 #include "decode.h"
 
-namespace GeotiffExtract {
+namespace TIFFExtract {
     enum ReadType {
         READ_VALUE = 0,
         READ_STRIP = 1
@@ -11,6 +14,11 @@ namespace GeotiffExtract {
     struct row_col {
         int row;
         int col;
+    };
+
+    struct coords {
+        double x;
+        double y;
     };
 
     class file_open_error : public exception {
@@ -56,20 +64,19 @@ namespace GeotiffExtract {
             if(magic != 42) {
                 throw not_supported_error("File is not a valid TIFF format.");
             }
-            
             uint32_t ifd_offset = *(uint32_t *)(buffer + 4);
             fseek(f, ifd_offset, SEEK_SET);
             fread(buffer, 2, 1, f);
             uint16_t num_entries = *(uint16_t *)buffer;
 
 
-            int16_t field_tag;
+            uint16_t field_tag;
             //garenteed to be offset for needed values for handled tiffs
             //note if value is less than or equal to 4 bytes this will be the value itself
-            uint32_t strip_offset_offset;
-            uint32_t strip_byte_count_offset;
+            uint32_t scale_block_offset;
+            uint32_t tiepoint_block_offset;
             //get map width, height, offset of strip offset block, and offset of strip byte count block
-            int tags = 6;
+            int tags = 8;
             for(int i = 0; i < num_entries && tags > 0; i++) {
                 fread(buffer, 12, 1, f);
                 field_tag = *(uint16_t *)buffer;
@@ -114,8 +121,34 @@ namespace GeotiffExtract {
                         tags--;
                         break;
                     }
+                    case 33550: {
+                        scale_block_offset = *(uint32_t *)(buffer + 8);
+                        tags--;
+                        break;
+                    }
+                    case 33922: {
+                        tiepoint_block_offset = *(uint32_t *)(buffer + 8);
+                        tags--;
+                        break;
+                    }
                 }
             }
+            
+            //tiepoint is i,j,k,x,y,z, want x and y (8 byte double values)
+            //note assumes one tiepoint representing upper left corner, start at 4th value (+24 bytes)
+            tiepoint_block_offset += 24;
+            double scale_b[2];
+            double tiepoint_b[2];
+            //get scale data
+            fseek(f, scale_block_offset, SEEK_SET);
+            fread(scale_b, 8, 2, f);
+            _scale.x = scale_b[0];
+            _scale.y = scale_b[1];
+            //get tiepoint data
+            fseek(f, tiepoint_block_offset, SEEK_SET);
+            fread(tiepoint_b, 8, 2, f);
+            _tiepoint.x = tiepoint_b[0];
+            _tiepoint.y = tiepoint_b[1];
         }
 
         ~Reader() {
@@ -152,6 +185,13 @@ namespace GeotiffExtract {
             return read(&pos, buffer_size, buffer, type);
         }
 
+        int read(struct coords *coords, size_t buffer_size, void *buffer, ReadType type) {
+            //convert coords into row and col
+            struct row_col pos;
+            coords_to_pos(coords, &pos);
+            return read(&pos, buffer_size, buffer, type);
+        }
+
         uint16_t bytes_per_sample() {
             return _bytes_per_sample;
         }
@@ -168,6 +208,14 @@ namespace GeotiffExtract {
             return _height;
         }
 
+        struct coords tiepoint() {
+            return _tiepoint;
+        }
+
+        struct coords scale() {
+            return _scale;
+        }
+
         private:
         FILE *f;
         uint16_t _width;
@@ -176,6 +224,8 @@ namespace GeotiffExtract {
         uint32_t strip_byte_count_block_offset;
         uint16_t _compression;
         uint16_t _bytes_per_sample;
+        struct coords _tiepoint;
+        struct coords _scale;
 
         enum compression_code {
             COMPRESSION_NONE = 1,
@@ -288,10 +338,14 @@ namespace GeotiffExtract {
             
             return 0;
         }
+
+        void coords_to_pos(struct coords *coords, struct row_col *pos) {
+            //note tiepoint is upper left not lower left
+            struct coords offset = { coords->x - _tiepoint.x, _tiepoint.y - coords->y };
+            pos->col = offset.x / _scale.x;
+            pos->row = offset.y / _scale.y;
+        }
     };
 }
 
-
-
-
-
+#endif

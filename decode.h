@@ -1,4 +1,5 @@
-
+#ifndef _TIFFEXTRACT_DECODE_H
+#define _TIFFEXTRACT_DECODE_H
 
 #include <iostream>
 #include <vector>
@@ -7,7 +8,7 @@
 
 using namespace std;
 
-namespace GeotiffExtract {
+namespace TIFFExtract {
     class Decoder {
         public:
         uint8_t *encoded;
@@ -100,7 +101,6 @@ namespace GeotiffExtract {
 
         int get_index(int index, size_t element_size, void *value) {
             int bytes_total = 0;
-
             int bytes_to_index = index * element_size;
             int index_bytes_decoded = 0;
             int bitcount_max = len_encoded * 8;
@@ -253,5 +253,4 @@ namespace GeotiffExtract {
     };
 }
 
-
-
+#endif
