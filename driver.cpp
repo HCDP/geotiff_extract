@@ -11,13 +11,78 @@
 using namespace std;
 using namespace TIFFExtract;
 
+//use two flags to determine which one, type and num bytes
+union result_value {
+    float value_f;
+    double value_d;
+    uint8_t value_u8;
+    uint16_t value_u16;
+    uint32_t value_u32;
+    uint64_t value_u64;
+    int8_t value_8;
+    int16_t value_16;
+    int32_t value_32;
+    int64_t value_64;
+};
+
 struct result_data {
     int code;
-    float value;
+    uint16_t value_type;
+    result_value value;
 };
+
 
 void print_usage() {
     cout << "Usage: tiffextract [-f input_file] [-i index] [-r row] [-c col] [-x x] [-y y] tiff1 tiff2 ..." << endl;
+}
+
+void print_value(uint16_t value_type, result_value value) {
+    switch(value_type) {
+        case 4 | TYPE_IEEEF << 8: {
+            cout << value.value_f << " ";
+            break;
+        }
+        case 8 | TYPE_IEEEF << 8: {
+            cout << value.value_d << " ";
+            break;
+        }
+        case 1 | TYPE_UINT << 8: {
+            cout << value.value_u8 << " ";
+            break;
+        }
+        case 2 | TYPE_UINT << 8: {
+            cout << value.value_u16 << " ";
+            break;
+        }
+        case 4 | TYPE_UINT << 8: {
+            cout << value.value_u32 << " ";
+            break;
+        }
+        case 8 | TYPE_UINT << 8: {
+            cout << value.value_u64 << " ";
+            break;
+        }
+        case 1 | TYPE_INT << 8: {
+            cout << value.value_8 << " ";
+            break;
+        }
+        case 2 | TYPE_INT << 8: {
+            cout << value.value_16 << " ";
+            break;
+        }
+        case 4 | TYPE_INT << 8: {
+            cout << value.value_32 << " ";
+            break;
+        }
+        case 8 | TYPE_INT >> 8: {
+            cout << value.value_64 << " ";
+            break;
+        }
+        default: {
+            //could not handle data type, just print _
+            cout << "_ ";
+        }
+    }
 }
 
 int main(int argc, char **argv) {
@@ -55,6 +120,7 @@ int main(int argc, char **argv) {
     if(files.size() == 0 && infile == nullptr) {
         cout << "No input files provided. Please provide an input file containing a list of tiff files (-f input_file) or a set of tiff files" << endl;
         print_usage();
+        return 1;
     }
 
     fstream f;
@@ -72,14 +138,13 @@ int main(int argc, char **argv) {
             results[i].code = -1;
             try {
                 Reader reader(const_cast<char *>(files[i].c_str()));
-                results[i].code = reader.read(index, 4, &results[i].value, READ_VALUE);
+                //encode value type
+                results[i].value_type = reader.bytes_per_sample() | reader.data_type() << 8;
+                results[i].code = reader.read(index, sizeof(result_data), &results[i].value, READ_VALUE);
             }
             catch(const exception &e) {
                 #pragma omp critical
                 cerr << "Error in reader for file: " << files[i] << ": " << e.what() << endl;
-            }      
-            if(results[i].code != 0) {
-                results[i].value = 0;
             }
         }
     }
@@ -89,14 +154,13 @@ int main(int argc, char **argv) {
             results[i].code = -1;
             try {
                 Reader reader(const_cast<char *>(files[i].c_str()));
-                results[i].code = reader.read(&pos, 4, &results[i].value, READ_VALUE);
+                //encode value type
+                results[i].value_type = reader.bytes_per_sample() | reader.data_type() << 8;
+                results[i].code = reader.read(&pos, sizeof(result_data), &results[i].value, READ_VALUE);
             }
             catch(const exception &e) {
                 #pragma omp critical
                 cerr << "Error in reader for file: " << files[i] << ": " << e.what() << endl;
-            }
-            if(results[i].code != 0) {
-                results[i].value = 0;
             }
         }
     }
@@ -106,14 +170,13 @@ int main(int argc, char **argv) {
             results[i].code = -1;
             try {
                 Reader reader(const_cast<char *>(files[i].c_str()));
-                results[i].code = reader.read(&coords, 4, &results[i].value, READ_VALUE);
+                //encode value type
+                results[i].value_type = reader.bytes_per_sample() | reader.data_type() << 8;
+                results[i].code = reader.read(&coords, sizeof(result_data), &results[i].value, READ_VALUE);
             }
             catch(const exception &e) {
                 #pragma omp critical
                 cerr << "Error in reader for file: " << files[i] << ": " << e.what() << endl;
-            }
-            if(results[i].code != 0) {
-                results[i].value = 0;
             }
         }
     }
@@ -128,7 +191,7 @@ int main(int argc, char **argv) {
             cout << "_ ";
         }
         else {
-            cout << results[i].value << " ";
+            print_value(results[i].value_type, results[i].value);
         }
         
     }

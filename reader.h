@@ -11,6 +11,13 @@ namespace TIFFExtract {
         READ_STRIP = 1
     };
 
+    enum sample_type {
+        TYPE_UINT = 1,
+        TYPE_INT = 2,
+        TYPE_IEEEF = 3,
+        TYPE_UNDEFINED = 4
+    };
+
     struct row_col {
         int row;
         int col;
@@ -76,7 +83,7 @@ namespace TIFFExtract {
             uint32_t scale_block_offset;
             uint32_t tiepoint_block_offset;
             //get map width, height, offset of strip offset block, and offset of strip byte count block
-            int tags = 8;
+            int tags = 9;
             for(int i = 0; i < num_entries && tags > 0; i++) {
                 fread(buffer, 12, 1, f);
                 field_tag = *(uint16_t *)buffer;
@@ -94,7 +101,6 @@ namespace TIFFExtract {
                         break;
                     }
                     //bits per value (sample)
-                    //currently only 32 byte samples supported
                     case 258: {
                         _bytes_per_sample = *((uint16_t *)(buffer + 8)) / 8;
                         tags--;
@@ -118,6 +124,12 @@ namespace TIFFExtract {
                     //strip byte counts
                     case 279: {
                         strip_byte_count_block_offset = *(uint32_t *)(buffer + 8);
+                        tags--;
+                        break;
+                    }
+                    //data type
+                    case 339: {
+                        _data_type = *(uint16_t *)(buffer + 8);
                         tags--;
                         break;
                     }
@@ -199,6 +211,10 @@ namespace TIFFExtract {
         uint16_t compression() {
             return _compression;
         }
+        
+        uint16_t data_type() {
+            return _data_type;
+        }
 
         uint16_t width() {
             return _width;
@@ -223,6 +239,7 @@ namespace TIFFExtract {
         uint32_t strip_offset_block_offset;
         uint32_t strip_byte_count_block_offset;
         uint16_t _compression;
+        uint16_t _data_type;
         uint16_t _bytes_per_sample;
         struct coords _tiepoint;
         struct coords _scale;
