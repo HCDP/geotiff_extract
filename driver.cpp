@@ -33,7 +33,7 @@ struct result_data {
 
 
 void print_usage() {
-    cout << "Usage: tiffextract [-f input_file] [-i index] [-r row] [-c col] [-x x] [-y y] tiff1 tiff2 ..." << endl;
+    cout << "Usage: tiffextract.out [-f input_file] [-i index] [-r row] [-c col] [-x x] [-y y] tiff1 tiff2 ..." << endl;
 }
 
 void print_value(uint16_t value_type, result_value value) {
