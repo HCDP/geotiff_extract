@@ -1,0 +1,5 @@
+Compilation:
+g++ ./tiffextract/driver.cpp -o dist/assets/tiffextract.out -fopenmp
+
+Usage:
+tiffextract.out [-f input_file] [-i index] [-r row] [-c col] [-x x] [-y y] tiff1 tiff2 ...
