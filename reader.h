@@ -83,7 +83,7 @@ namespace TIFFExtract {
             uint32_t scale_block_offset;
             uint32_t tiepoint_block_offset;
             //get map width, height, offset of strip offset block, and offset of strip byte count block
-            int tags = 9;
+            int tags = 10;
             for(int i = 0; i < num_entries && tags > 0; i++) {
                 fread(buffer, 12, 1, f);
                 field_tag = *(uint16_t *)buffer;
@@ -118,6 +118,12 @@ namespace TIFFExtract {
                     //strip offsets
                     case 273: {
                         strip_offset_block_offset = *(uint32_t *)(buffer + 8);
+                        tags--;
+                        break;
+                    }
+                    //rows per strip
+                    case 278: {
+                        _rows_per_strip = *(uint16_t *)(buffer + 8); 
                         tags--;
                         break;
                     }
@@ -172,6 +178,9 @@ namespace TIFFExtract {
             if(pos->col >= _width || pos->row >= _height) {
                 throw out_of_range("Position provided is outside of the map range.");
             }
+            //update row and col to strip and col based on rows per strip
+            pos->row /= _rows_per_strip;
+            pos->col += (pos->row % _rows_per_strip) * _width;
             //get strip location and number of bytes
             struct strip_data strip_data;
             get_strip_data(pos, &strip_data);
@@ -238,6 +247,7 @@ namespace TIFFExtract {
         uint16_t _height;
         uint32_t strip_offset_block_offset;
         uint32_t strip_byte_count_block_offset;
+        uint16_t _rows_per_strip;
         uint16_t _compression;
         uint16_t _data_type;
         uint16_t _bytes_per_sample;
