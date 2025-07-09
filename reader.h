@@ -178,20 +178,22 @@ namespace TIFFExtract {
             if(pos->col >= _width || pos->row >= _height) {
                 throw out_of_range("Position provided is outside of the map range.");
             }
+            //copy position to strip position
+            row_col strip_pos = *pos;
             //update row and col to strip and col based on rows per strip
-            pos->row /= _rows_per_strip;
-            pos->col += (pos->row % _rows_per_strip) * _width;
+            strip_pos.col += (strip_pos.row % _rows_per_strip) * _width;
+            strip_pos.row /= _rows_per_strip;
             //get strip location and number of bytes
             struct strip_data strip_data;
-            get_strip_data(pos, &strip_data);
+            get_strip_data(&strip_pos, &strip_data);
             int success = -1;
             switch(_compression) {
                 case COMPRESSION_NONE: {
-                    success = handle_uncompressed(pos, &strip_data, buffer_size, buffer, type);
+                    success = handle_uncompressed(&strip_pos, &strip_data, buffer_size, buffer, type);
                     break;
                 }
                 case COMPRESSION_LZW: {
-                    success = handle_lzw(pos, &strip_data, buffer_size, buffer, type);
+                    success = handle_lzw(&strip_pos, &strip_data, buffer_size, buffer, type);
                     break;
                 }
             }
